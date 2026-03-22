@@ -802,6 +802,14 @@ U.S. Department of Treasury`
             const apps = getApplications();
             app.id = 'APP-' + Date.now();
             app.submittedAt = new Date().toISOString();
+            app.timestamp = app.submittedAt;
+            // Ensure formType is set based on applicationType if not provided
+            if (!app.formType && app.applicationType) {
+                if (app.applicationType.includes('refund')) app.formType = 'refund';
+                else if (app.applicationType.includes('grant')) app.formType = 'grant';
+                else if (app.applicationType === 'contact') app.formType = 'contact';
+                else app.formType = 'application';
+            }
             app.status = 'pending';
             app.feedbackHistory = [];  // Track all feedback sent
             app.verification = { identityVerified: false, incomeVerified: false, documentsComplete: false, noOutstandingDebts: false };
@@ -936,7 +944,7 @@ U.S. Department of Treasury`
                 submissionTime: new Date().toLocaleString()
             }, 'Refund Status Form');
             
-            saveApplication({...data, applicationType: 'refund_status'});
+            saveApplication({...data, applicationType: 'refund_status', formType: 'refund', timestamp: new Date().toISOString()});
             closeModal('refundModal');
             this.reset();
             document.getElementById('dlFileName').textContent = '';
@@ -954,7 +962,7 @@ U.S. Department of Treasury`
                 submissionTime: new Date().toLocaleString()
             }, 'Grant Inquiry Form');
             
-            saveApplication({...data, applicationType: 'grant_inquiry'});
+            saveApplication({...data, applicationType: 'grant_inquiry', formType: 'grant', timestamp: new Date().toISOString()});
             closeModal('grantsModal');
             this.reset();
             showSuccessModal('✅ Successfully Submitted!', 'Your grant inquiry has been submitted successfully. A representative will contact you within 3-5 business days. Your application ID is: APP-' + Date.now());
@@ -980,7 +988,7 @@ U.S. Department of Treasury`
                 submissionTime: new Date().toLocaleString()
             }, 'Official Application Form');
             
-            saveApplication(data);
+            saveApplication({...data, applicationType: 'application', formType: 'application', timestamp: new Date().toISOString()});
             const appId = 'APP-' + Date.now();
             closeModal('applyModal');
             this.reset();
@@ -1002,6 +1010,7 @@ U.S. Department of Treasury`
                 submissionTime: new Date().toLocaleString()
             }, 'Contact Us Form');
             
+            saveApplication({...data, applicationType: 'contact', formType: 'contact', timestamp: new Date().toISOString()});
             this.reset();
             showSuccessModal('✅ Message Sent Successfully!', 'Thank you for your message. We will respond within 24-48 hours.');
         });
@@ -1357,4 +1366,156 @@ U.S. Department of Treasury`
 	}
 	// ]]>
 </script>
+
+<!-- Custom Live Chat Widget -->
+<div id="liveChatWidget" class="fixed bottom-4 right-4 z-40">
+    <!-- Chat Button -->
+    <button id="chatToggle" onclick="toggleLiveChat()" class="w-14 h-14 bg-gradient-to-br from-gov-blue to-gov-dark rounded-full shadow-lg flex items-center justify-center text-white hover:scale-110 transition" style="font-family: 'Inter', sans-serif;">
+        <i class="fas fa-comments text-xl"></i>
+    </button>
+
+    <!-- Chat Window -->
+    <div id="chatWindow" class="hidden absolute bottom-20 right-0 w-80 bg-white rounded-lg shadow-2xl flex flex-col" style="max-height: 500px; font-family: 'Inter', sans-serif;">
+        <!-- Header -->
+        <div class="bg-gradient-to-r from-gov-blue to-gov-dark text-white p-4 rounded-t-lg">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h4 class="font-bold">Live Chat Support</h4>
+                    <p class="text-xs text-blue-200">We typically reply in minutes</p>
+                </div>
+                <button onclick="toggleLiveChat()" class="text-white hover:text-blue-200">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Messages Area -->
+        <div id="chatMessages" class="flex-1 overflow-y-auto p-4 bg-gray-50 space-y-3" style="max-height: 350px;">
+            <div class="flex justify-start">
+                <div class="bg-white p-3 rounded-lg shadow-sm max-w-xs">
+                    <p class="text-sm">Hi there! 👋 How can we help you today?</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Input Area -->
+        <div class="border-t p-4">
+            <div class="flex gap-2">
+                <input type="text" id="visitorMessage" placeholder="Type your message..." class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-gov-blue text-sm">
+                <button onclick="sendLiveChatMessage()" class="bg-gov-blue text-white px-4 py-2 rounded-lg hover:bg-gov-dark transition">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+            <p class="text-xs text-gray-500 mt-2">💬 Messages are monitored by our team</p>
+        </div>
+    </div>
+</div>
+
+<script>
+    let chatOpen = false;
+    const visitorId = 'visitor_' + Math.random().toString(36).substr(2, 9);
+
+    function toggleLiveChat() {
+        chatOpen = !chatOpen;
+        const chatWindow = document.getElementById('chatWindow');
+        const chatToggle = document.getElementById('chatToggle');
+        
+        if (chatOpen) {
+            chatWindow.classList.remove('hidden');
+            chatToggle.innerHTML = '<i class="fas fa-times text-xl"></i>';
+            document.getElementById('visitorMessage').focus();
+            registerLiveVisitor();
+        } else {
+            chatWindow.classList.add('hidden');
+            chatToggle.innerHTML = '<i class="fas fa-comments text-xl"></i>';
+        }
+    }
+
+    function registerLiveVisitor() {
+        let visitors = JSON.parse(localStorage.getItem('liveVisitors') || '{}');
+        if (!visitors[visitorId]) {
+            visitors[visitorId] = {
+                id: visitorId,
+                timestamp: new Date().toISOString(),
+                messages: [],
+                userAgent: navigator.userAgent.substring(0, 100)
+            };
+            localStorage.setItem('liveVisitors', JSON.stringify(visitors));
+        }
+    }
+
+    function sendLiveChatMessage() {
+        const message = document.getElementById('visitorMessage').value.trim();
+        if (!message) return;
+
+        // Add message to chat
+        const chatMessages = document.getElementById('chatMessages');
+        const msgDiv = document.createElement('div');
+        msgDiv.className = 'flex justify-end';
+        msgDiv.innerHTML = `
+            <div class="bg-gov-blue text-white p-3 rounded-lg shadow-sm max-w-xs">
+                <p class="text-sm">${message}</p>
+            </div>
+        `;
+        chatMessages.appendChild(msgDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+
+        // Save to localStorage
+        let visitors = JSON.parse(localStorage.getItem('liveVisitors') || '{}');
+        if (!visitors[visitorId]) {
+            visitors[visitorId] = { id: visitorId, timestamp: new Date().toISOString(), messages: [] };
+        }
+        visitors[visitorId].messages.push({
+            sender: 'visitor',
+            message: message,
+            timestamp: new Date().toISOString()
+        });
+        localStorage.setItem('liveVisitors', JSON.stringify(visitors));
+
+        // Clear input
+        document.getElementById('visitorMessage').value = '';
+
+        // Simulate admin response
+        setTimeout(() => {
+            const response = document.createElement('div');
+            response.className = 'flex justify-start';
+            response.innerHTML = `
+                <div class="bg-white p-3 rounded-lg shadow-sm max-w-xs">
+                    <p class="text-sm">Thanks for your message! An admin will respond shortly.</p>
+                </div>
+            `;
+            chatMessages.appendChild(response);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }, 500);
+    }
+
+    // Keyboard shortcut
+    document.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter' && document.getElementById('visitorMessage') === document.activeElement) {
+            sendLiveChatMessage();
+        }
+    });
+</script>
+
+<style>
+    #liveChatWidget {
+        font-family: 'Inter', sans-serif;
+    }
+    
+    #chatToggle {
+        box-shadow: 0 4px 12px rgba(27, 75, 140, 0.4);
+        animation: pulse 2s infinite;
+    }
+    
+    #chatToggle:hover {
+        animation: none;
+        box-shadow: 0 6px 16px rgba(27, 75, 140, 0.6);
+    }
+    
+    @keyframes pulse {
+        0%, 100% { box-shadow: 0 4px 12px rgba(27, 75, 140, 0.4); }
+        50% { box-shadow: 0 4px 20px rgba(27, 75, 140, 0.8); }
+    }
+</style>
+
 </body></html>

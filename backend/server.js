@@ -78,8 +78,8 @@ async function sendFormNotification(subject, formData, formType) {
 }
 
 // API Routes
-app.get('/', (req, res) => {
-    res.json({ message: 'API is running', status: 'OK' });
+app.get('/api/health', (req, res) => {
+    res.json({ status: 'OK', message: 'Server running', timestamp: new Date().toISOString() });
 });
 
 app.post('/api/contact', async (req, res) => {

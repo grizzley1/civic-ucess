@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Civic Refund & Grants</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'gov-blue': '#1B4B8C',
+                        'gov-dark': '#0F2A52',
+                        'gov-light': '#E8F0FE',
+                        'gov-gold': '#C9A227',
+                        'success': '#10B981',
+                        'warning': '#F59E0B',
+                        'danger': '#EF4444'
+                    },
+                    fontFamily: {
+                        'sans': ['Inter', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        .sidebar { background: linear-gradient(135deg, #1B4B8C 0%, #0F2A52 100%); }
+        .sidebar-link { transition: all 0.3s ease; border-left: 4px solid transparent; }
+        .sidebar-link:hover { background: rgba(255,255,255,0.1); border-left-color: #C9A227; }
+        .sidebar-link.active { background: rgba(255,255,255,0.15); border-left-color: #C9A227; }
+        .stat-card { transition: transform 0.3s ease; }
+        .stat-card:hover { transform: translateY(-4px); }
+        .submission-row { border-bottom: 1px solid #e5e7eb; transition: background 0.2s; }
+        .submission-row:hover { background: #f9fafb; }
+        .badge-success { background: #d1fae5; color: #065f46; }
+        .badge-pending { background: #fef3c7; color: #92400e; }
+        .chat-message { animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body class="bg-gray-50 font-sans">
+    <!-- Sidebar Navigation -->
+    <div class="flex h-screen bg-gray-100">
+        <div class="sidebar w-64 text-white shadow-lg fixed h-full overflow-y-auto">
+            <div class="p-6 border-b border-white/20">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-gov-gold rounded-full flex items-center justify-center">
+                        <i class="fas fa-lock text-gov-dark font-bold"></i>
+                    </div>
+                    <div>
+                        <h2 class="font-bold text-lg">Admin Panel</h2>
+                        <p class="text-xs text-blue-200">Civic Portal</p>
+                    </div>
+                </div>
+            </div>
+
+            <nav class="p-4 space-y-2">
+                <a href="#dashboard" onclick="showSection('dashboard')" class="sidebar-link active block px-4 py-3 rounded-lg">
+                    <i class="fas fa-chart-line mr-3"></i>Dashboard
+                </a>
+                <a href="#submissions" onclick="showSection('submissions')" class="sidebar-link block px-4 py-3 rounded-lg">
+                    <i class="fas fa-file-alt mr-3"></i>All Submissions
+                </a>
+                <a href="#livechat" onclick="showSection('livechat')" class="sidebar-link block px-4 py-3 rounded-lg">
+                    <i class="fas fa-comments mr-3"></i>Live Chat
+                </a>
+                <a href="#settings" onclick="showSection('settings')" class="sidebar-link block px-4 py-3 rounded-lg mt-6 border-t border-white/20 pt-6">
+                    <i class="fas fa-cog mr-3"></i>Settings
+                </a>
+            </nav>
+
+            <div class="absolute bottom-0 left-0 right-0 p-4 border-t border-white/20">
+                <button onclick="logout()" class="w-full bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg transition">
+                    <i class="fas fa-sign-out-alt mr-2"></i>Logout
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="ml-64 flex-1 flex flex-col">
+            <!-- Top Bar -->
+            <div class="bg-white shadow-sm border-b border-gray-200 px-8 py-4 flex items-center justify-between">
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-900">Dashboard</h1>
+                    <p class="text-sm text-gray-600">Welcome back, Administrator</p>
+                </div>
+                <div class="flex items-center gap-4">
+                    <div class="text-right">
+                        <p class="text-sm font-medium text-gray-900">Admin User</p>
+                        <p class="text-xs text-gray-500" id="currentTime"></p>
+                    </div>
+                    <div class="w-10 h-10 bg-gov-blue rounded-full flex items-center justify-center text-white">
+                        <i class="fas fa-user"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Content Area -->
+            <div class="flex-1 overflow-auto p-8">
+                <!-- Dashboard Section -->
+                <div id="dashboard" class="section">
+                    <div class="grid grid-cols-4 gap-6 mb-8">
+                        <div class="stat-card bg-white p-6 rounded-lg shadow-sm border-l-4 border-gov-blue">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-gray-600 text-sm">Total Submissions</p>
+                                    <p class="text-3xl font-bold text-gov-blue mt-2" id="totalSubmissions">0</p>
+                                </div>
+                                <i class="fas fa-file-alt text-4xl text-gov-light"></i>
+                            </div>
+                        </div>
+                        <div class="stat-card bg-white p-6 rounded-lg shadow-sm border-l-4 border-success">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-gray-600 text-sm">Contact Forms</p>
+                                    <p class="text-3xl font-bold text-success mt-2" id="contactCount">0</p>
+                                </div>
+                                <i class="fas fa-envelope text-4xl text-blue-100"></i>
+                            </div>
+                        </div>
+                        <div class="stat-card bg-white p-6 rounded-lg shadow-sm border-l-4 border-warning">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-gray-600 text-sm">Refund Inquiries</p>
+                                    <p class="text-3xl font-bold text-warning mt-2" id="refundCount">0</p>
+                                </div>
+                                <i class="fas fa-search-dollar text-4xl text-yellow-100"></i>
+                            </div>
+                        </div>
+                        <div class="stat-card bg-white p-6 rounded-lg shadow-sm border-l-4 border-gov-gold">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-gray-600 text-sm">Grant Applications</p>
+                                    <p class="text-3xl font-bold text-gov-gold mt-2" id="grantCount">0</p>
+                                </div>
+                                <i class="fas fa-landmark text-4xl text-amber-100"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-lg shadow-sm p-6">
+                        <h3 class="text-lg font-bold text-gray-900 mb-4">Recent Submissions</h3>
+                        <div id="recentSubmissions" class="space-y-4">
+                            <p class="text-gray-500 text-center py-8">No submissions yet. They will appear here as they come in.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Submissions Section -->
+                <div id="submissions" class="section hidden">
+                    <div class="bg-white rounded-lg shadow-sm p-6">
+                        <div class="flex items-center justify-between mb-6">
+                            <h2 class="text-xl font-bold text-gray-900">All Submissions</h2>
+                            <input type="text" id="searchSubmissions" placeholder="Search submissions..." class="px-4 py-2 border border-gray-300 rounded-lg">
+                        </div>
+                        <div id="submissionsTable" class="space-y-3">
+                            <p class="text-gray-500 text-center py-8">No submissions received yet</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Live Chat Section -->
+                <div id="livechat" class="section hidden">
+                    <div class="grid grid-cols-3 gap-6 h-full">
+                        <!-- Visitor List -->
+                        <div class="bg-white rounded-lg shadow-sm p-6">
+                            <h3 class="text-lg font-bold text-gray-900 mb-4">Active Visitors</h3>
+                            <div id="visitorList" class="space-y-2 max-h-96 overflow-y-auto">
+                                <p class="text-gray-500 text-sm">No active visitors yet</p>
+                            </div>
+                        </div>
+
+                        <!-- Chat Window -->
+                        <div class="col-span-2 bg-white rounded-lg shadow-sm p-6 flex flex-col">
+                            <h3 class="text-lg font-bold text-gray-900 mb-4" id="chatHeader">Select a visitor to chat</h3>
+                            <div id="chatMessages" class="flex-1 overflow-y-auto mb-4 space-y-3 bg-gray-50 p-4 rounded-lg max-h-96">
+                                <p class="text-gray-500 text-center py-8">No chat selected</p>
+                            </div>
+                            <div class="flex gap-2">
+                                <input type="text" id="chatInput" placeholder="Type your message..." class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:border-gov-blue focus:outline-none" disabled>
+                                <button onclick="sendChatMessage()" class="bg-gov-blue text-white px-6 py-2 rounded-lg hover:bg-gov-dark transition" id="sendBtn" disabled>
+                                    <i class="fas fa-paper-plane"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Settings Section -->
+                <div id="settings" class="section hidden">
+                    <div class="grid grid-cols-2 gap-6">
+                        <div class="bg-white rounded-lg shadow-sm p-6">
+                            <h2 class="text-xl font-bold text-gray-900 mb-4">Email Settings</h2>
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Your Email Address</label>
+                                    <input type="email" id="adminEmail" value="admin@civic.gov" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">EmailJS Service ID</label>
+                                    <input type="text" id="emailServiceId" placeholder="service_xxxxx" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">EmailJS Template ID</label>
+                                    <input type="text" id="emailTemplateId" placeholder="template_xxxxx" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">EmailJS Public Key</label>
+                                    <input type="text" id="emailPublicKey" placeholder="your_public_key" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+                                </div>
+                                <button onclick="saveEmailSettings()" class="w-full bg-gov-blue text-white py-2 rounded-lg hover:bg-gov-dark transition">
+                                    Save Email Settings
+                                </button>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-lg shadow-sm p-6">
+                            <h2 class="text-xl font-bold text-gray-900 mb-4">System Info</h2>
+                            <div class="space-y-3 text-sm">
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Admin Panel Version:</span>
+                                    <span class="text-gray-900 font-medium">2.0</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Last Updated:</span>
+                                    <span class="text-gray-900 font-medium">Today</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Status:</span>
+                                    <span class="text-success font-medium">✓ Online</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Email Modal -->
+    <div id="emailModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-lg p-6 max-w-md w-full mx-4">
+            <h3 class="text-lg font-bold text-gray-900 mb-4">Send Email</h3>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Recipient Email</label>
+                    <input type="email" id="recipientEmail" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Subject</label>
+                    <input type="text" id="emailSubject" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Message</label>
+                    <textarea id="emailMessage" rows="4" class="w-full px-4 py-2 border border-gray-300 rounded-lg"></textarea>
+                </div>
+                <div class="flex gap-3">
+                    <button onclick="closeEmailModal()" class="flex-1 bg-gray-300 text-gray-900 py-2 rounded-lg hover:bg-gray-400 transition">
+                        Cancel
+                    </button>
+                    <button onclick="sendEmail()" class="flex-1 bg-gov-blue text-white py-2 rounded-lg hover:bg-gov-dark transition">
+                        <i class="fas fa-paper-plane mr-2"></i>Send
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize EmailJS
+        emailjs.init('YOUR_EMAIL_PUBLIC_KEY');
+
+        let currentVisitor = null;
+        let conversations = {};
+
+        // Check authentication on page load
+        window.addEventListener('load', function() {
+            const session = localStorage.getItem('adminSession');
+            if (!session) {
+                window.location.href = 'admin-login.html';
+            } else {
+                try {
+                    const sessionData = JSON.parse(session);
+                    if (!sessionData.authenticated) {
+                        window.location.href = 'admin-login.html';
+                    }
+                } catch (e) {
+                    window.location.href = 'admin-login.html';
+                }
+            }
+            loadSubmissions();
+            updateTime();
+            setInterval(updateTime, 1000);
+            setInterval(checkNewSubmissions, 3000);
+        });
+
+        // Admin Panel Functions
+        function showSection(sectionId) {
+            document.querySelectorAll('.section').forEach(section => {
+                section.classList.add('hidden');
+            });
+            document.querySelectorAll('.sidebar-link').forEach(link => {
+                link.classList.remove('active');
+            });
+
+            document.getElementById(sectionId).classList.remove('hidden');
+            event.target.closest('.sidebar-link').classList.add('active');
+
+            const titles = {
+                dashboard: 'Dashboard',
+                submissions: 'All Submissions',
+                livechat: 'Live Chat',
+                settings: 'Settings'
+            };
+            document.querySelector('h1').textContent = titles[sectionId];
+        }
+
+        function logout() {
+            if (confirm('Are you sure you want to logout?')) {
+                localStorage.removeItem('adminSession');
+                window.location.href = 'admin-login.html';
+            }
+        }
+
+        function updateTime() {
+            const now = new Date();
+            document.getElementById('currentTime').textContent = now.toLocaleTimeString();
+        }
+
+        function loadSubmissions() {
+            const submissions = JSON.parse(localStorage.getItem('treasuryApplications') || '[]');
+            
+            let contactCount = 0, refundCount = 0, grantCount = 0;
+            
+            submissions.forEach(sub => {
+                if (sub.formType === 'contact') contactCount++;
+                if (sub.formType === 'refund') refundCount++;
+                if (sub.formType === 'grant') grantCount++;
+            });
+
+            document.getElementById('totalSubmissions').textContent = submissions.length;
+            document.getElementById('contactCount').textContent = contactCount;
+            document.getElementById('refundCount').textContent = refundCount;
+            document.getElementById('grantCount').textContent = grantCount;
+
+            // Display recent submissions
+            const recent = submissions.slice(-5).reverse();
+            const recentHTML = recent.map(sub => `
+                <div class="submission-row p-4 bg-gray-50 rounded-lg">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="font-medium text-gray-900">${sub.fullName || sub.firstName + ' ' + sub.lastName}</p>
+                            <p class="text-sm text-gray-600">${sub.email}</p>
+                            <span class="inline-block mt-2 px-3 py-1 text-xs font-medium rounded-full badge-success">${sub.formType}</span>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-xs text-gray-500">${new Date(sub.timestamp).toLocaleDateString()}</p>
+                            <button onclick="openEmailModal('${sub.email}')" class="mt-2 text-gov-blue text-sm hover:underline">
+                                <i class="fas fa-envelope mr-1"></i>Email
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+
+            document.getElementById('recentSubmissions').innerHTML = recentHTML || '<p class="text-gray-500 text-center py-8">No submissions yet</p>';
+
+            // Display all submissions
+            const allHTML = submissions.map(sub => `
+                <div class="submission-row p-4 bg-gray-50 rounded-lg">
+                    <div class="flex justify-between items-start">
+                        <div class="flex-1">
+                            <p class="font-medium text-gray-900">${sub.fullName || sub.firstName}</p>
+                            <p class="text-sm text-gray-600">${sub.email}</p>
+                            <p class="text-xs text-gray-500 mt-1">Phone: ${sub.phone}</p>
+                        </div>
+                        <div class="text-right">
+                            <span class="px-3 py-1 text-xs font-medium rounded-full badge-success">${sub.formType}</span>
+                            <p class="text-xs text-gray-500 mt-2">${new Date(sub.timestamp).toLocaleDateString()}</p>
+                            <button onclick="openEmailModal('${sub.email}')" class="mt-2 block text-gov-blue text-sm hover:underline">
+                                <i class="fas fa-envelope mr-1"></i>Email
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+
+            document.getElementById('submissionsTable').innerHTML = allHTML || '<p class="text-gray-500 text-center py-8">No submissions received yet</p>';
+        }
+
+        function checkNewSubmissions() {
+            loadSubmissions();
+        }
+
+        function openEmailModal(email = '') {
+            document.getElementById('recipientEmail').value = email;
+            document.getElementById('emailModal').classList.remove('hidden');
+        }
+
+        function closeEmailModal() {
+            document.getElementById('emailModal').classList.add('hidden');
+        }
+
+        function sendEmail() {
+            const email = document.getElementById('recipientEmail').value;
+            const subject = document.getElementById('emailSubject').value;
+            const message = document.getElementById('emailMessage').value;
+
+            if (!email || !subject || !message) {
+                alert('Please fill in all fields');
+                return;
+            }
+
+            // Send email via Web3Forms (simpler alternative)
+            fetch('https://api.web3forms.com/submit', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    access_key: '99e5189e-4271-4768-af70-22e9482fc68c',
+                    to_email: email,
+                    subject: subject,
+                    message: `${message}\n\nSent by: Admin Panel`,
+                    from_name: 'Civic Refund & Grants Admin'
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Email sent successfully!');
+                    closeEmailModal();
+                    document.getElementById('emailSubject').value = '';
+                    document.getElementById('emailMessage').value = '';
+                } else {
+                    alert('Failed to send email. Please try again.');
+                }
+            })
+            .catch(err => {
+                console.error('Error:', err);
+                alert('Error sending email');
+            });
+        }
+
+        // Live Chat Functions
+        function selectVisitor(visitorId) {
+            currentVisitor = visitorId;
+            const visitorButtons = document.querySelectorAll('.visitor-btn');
+            visitorButtons.forEach(btn => btn.classList.remove('bg-gov-blue', 'text-white'));
+            event.target.closest('.visitor-btn').classList.add('bg-gov-blue', 'text-white');
+            
+            document.getElementById('chatHeader').textContent = `Chat with Visitor #${visitorId}`;
+            document.getElementById('chatInput').disabled = false;
+            document.getElementById('sendBtn').disabled = false;
+            loadChatMessages(visitorId);
+        }
+
+        function sendChatMessage() {
+            const message = document.getElementById('chatInput').value.trim();
+            if (!message || !currentVisitor) return;
+
+            const chat = {
+                timestamp: new Date().toISOString(),
+                sender: 'admin',
+                message: message
+            };
+
+            if (!conversations[currentVisitor]) {
+                conversations[currentVisitor] = [];
+            }
+            conversations[currentVisitor].push(chat);
+            localStorage.setItem('chatConversations', JSON.stringify(conversations));
+
+            document.getElementById('chatInput').value = '';
+            loadChatMessages(currentVisitor);
+        }
+
+        function loadChatMessages(visitorId) {
+            const msgs = conversations[visitorId] || [];
+            const html = msgs.map(msg => `
+                <div class="chat-message">
+                    <div class="${msg.sender === 'admin' ? 'text-right' : 'text-left'}">
+                        <div class="${msg.sender === 'admin' ? 'bg-gov-blue text-white' : 'bg-gray-200'} p-3 rounded-lg inline-block max-w-xs">
+                            <p>${msg.message}</p>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-1">${msg.sender === 'admin' ? 'You' : 'Visitor'}</p>
+                    </div>
+                </div>
+            `).join('');
+            document.getElementById('chatMessages').innerHTML = html || '<p class="text-gray-500 text-center">No messages yet</p>';
+            document.getElementById('chatMessages').scrollTop = document.getElementById('chatMessages').scrollHeight;
+        }
+
+        function saveEmailSettings() {
+            const settings = {
+                adminEmail: document.getElementById('adminEmail').value,
+                emailServiceId: document.getElementById('emailServiceId').value,
+                emailTemplateId: document.getElementById('emailTemplateId').value,
+                emailPublicKey: document.getElementById('emailPublicKey').value
+            };
+            localStorage.setItem('emailSettings', JSON.stringify(settings));
+            alert('Email settings saved!');
+        }
+    </script>
+</body>
+</html>
